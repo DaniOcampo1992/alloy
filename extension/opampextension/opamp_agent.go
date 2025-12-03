@@ -233,7 +233,15 @@ func (o *opampAgent) NotifyConfig(ctx context.Context, conf *confmap.Conf) error
 	if o.capabilities.ReportsEffectiveConfig {
 		o.logger.Info("Received new config and updating effective config")
 
+		// read remote status from cache if it exists and report back
+		
+		// err = o.opampClient.SetRemoteConfigStatus(&protobufs.RemoteConfigStatus{
+			// 	LastRemoteConfigHash: remoteConfig.ConfigHash,
+			// 	Status:               protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED,
+			// })
+			
 		// Collector is restarted with new config
+
 		o.updateEffectiveConfig(conf)
 		return o.opampClient.UpdateEffectiveConfig(ctx)
 	}
@@ -487,6 +495,8 @@ func (o *opampAgent) handleRemoteConfig(remoteConfig *protobufs.AgentRemoteConfi
 		Status:               protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLYING,
 	})
 
+	// cache the remote config hash and status
+
 	if err != nil {
 		o.logger.Error("Failed to communicate with server")
 	}
@@ -513,11 +523,6 @@ func (o *opampAgent) handleRemoteConfig(remoteConfig *protobufs.AgentRemoteConfi
 			continue
 		}
 	}
-
-	err = o.opampClient.SetRemoteConfigStatus(&protobufs.RemoteConfigStatus{
-		LastRemoteConfigHash: remoteConfig.ConfigHash,
-		Status:               protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED,
-	})
 
 	if err != nil {
 		o.logger.Error("Failed to communicate with server")
