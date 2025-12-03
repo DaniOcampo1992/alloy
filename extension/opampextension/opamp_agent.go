@@ -231,6 +231,9 @@ func (o *opampAgent) Dependencies() []component.ID {
 
 func (o *opampAgent) NotifyConfig(ctx context.Context, conf *confmap.Conf) error {
 	if o.capabilities.ReportsEffectiveConfig {
+		o.logger.Info("Received new config and updating effective config")
+
+		// Collector is restarted with new config
 		o.updateEffectiveConfig(conf)
 		return o.opampClient.UpdateEffectiveConfig(ctx)
 	}
@@ -468,8 +471,6 @@ func (o *opampAgent) onMessage(_ context.Context, msg *types.MessageData) {
 
 	if msg.RemoteConfig != nil {
 		o.handleRemoteConfig(msg.RemoteConfig)
-	} else {
-		o.logger.Debug("No remote config received")
 	}
 }
 
@@ -481,6 +482,15 @@ func (o *opampAgent) handleRemoteConfig(remoteConfig *protobufs.AgentRemoteConfi
 		return
 	}
 
+	err := o.opampClient.SetRemoteConfigStatus(&protobufs.RemoteConfigStatus{
+		LastRemoteConfigHash: remoteConfig.ConfigHash,
+		Status:               protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLYING,
+	})
+
+	if err != nil {
+		o.logger.Error("Failed to communicate with server")
+	}
+
 	configDir := o.cfg.RemoteConfigDir
 
 	if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -490,8 +500,7 @@ func (o *opampAgent) handleRemoteConfig(remoteConfig *protobufs.AgentRemoteConfi
 		return
 	}
 
-	for name, file := range remoteConfig.Config.ConfigMap {
-		fmt.Printf("Writing remote config file %s \n %s", name, file)
+	for _, file := range remoteConfig.Config.ConfigMap {
 		filename := "config.yaml"
 		filePath := filepath.Join(configDir, filename)
 
@@ -503,6 +512,15 @@ func (o *opampAgent) handleRemoteConfig(remoteConfig *protobufs.AgentRemoteConfi
 				zap.Error(err))
 			continue
 		}
+	}
+
+	err = o.opampClient.SetRemoteConfigStatus(&protobufs.RemoteConfigStatus{
+		LastRemoteConfigHash: remoteConfig.ConfigHash,
+		Status:               protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED,
+	})
+
+	if err != nil {
+		o.logger.Error("Failed to communicate with server")
 	}
 }
 
