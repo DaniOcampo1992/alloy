@@ -60,7 +60,7 @@ To install {{< param "PRODUCT_NAME" >}} on Linux, run the following commands in 
    ```
 
    ```rhel-fedora
-   yum update
+   yum makecache
    ```
 
    ```suse-opensuse
